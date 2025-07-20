@@ -101,6 +101,39 @@ app.post("/api/pets", upload.single("image"), async (req, res) => {
   }
 });
 
+// Delete pet
+app.delete("/api/pets/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const pets = readPets();
+    const petIndex = pets.findIndex((pet) => pet.id === id);
+
+    if (petIndex === -1) {
+      return res.status(404).json({ error: "Pet not found" });
+    }
+
+    const pet = pets[petIndex];
+
+    // Delete image from S3
+    const imageKey = pet.imageUrl.split("/").pop(); // Extract key from URL
+    const deleteParams = {
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: `pets/${imageKey}`,
+    };
+
+    await s3.deleteObject(deleteParams).promise();
+
+    // Remove pet from array
+    pets.splice(petIndex, 1);
+    writePets(pets);
+
+    res.json({ message: "Pet deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting pet:", error);
+    res.status(500).json({ error: "Failed to delete pet" });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
